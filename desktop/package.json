@@ -1,0 +1,22 @@
+{
+  "name": "lamboorg-ultra",
+  "productName": "Lamboorg Ultra",
+  "version": "1.0.0",
+  "description": "Lamboorg Ultra desktop app",
+  "homepage": "https://lamboorg.neocities.org",
+  "author": { "name": "Lamboorg", "email": "lamboorg@users.noreply.github.com" },
+  "license": "UNLICENSED",
+  "main": "main.js",
+  "scripts": { "start": "electron .", "dist": "electron-builder --publish never" },
+  "devDependencies": { "electron": "^33.2.1", "electron-builder": "^25.1.8" },
+  "build": {
+    "appId": "org.lamboorg.ultra",
+    "productName": "Lamboorg Ultra",
+    "directories": { "output": "dist", "buildResources": "build" },
+    "files": ["main.js", "offline.html", "build/icon.png"],
+    "win": { "target": [{ "target": "nsis", "arch": ["x64"] }], "icon": "build/icon.png", "artifactName": "Lamboorg-Ultra-Setup.${ext}" },
+    "nsis": { "oneClick": true, "perMachine": false, "createDesktopShortcut": true, "createStartMenuShortcut": true, "shortcutName": "Lamboorg Ultra" },
+    "mac": { "target": [{ "target": "dmg", "arch": ["universal"] }], "icon": "build/icon.png", "category": "public.app-category.social-networking", "identity": null, "artifactName": "Lamboorg-Ultra.${ext}" },
+    "linux": { "target": ["AppImage", "deb"], "icon": "build/icon.png", "category": "Network", "artifactName": "Lamboorg-Ultra.${ext}", "synopsis": "Lamboorg Ultra" }
+  }
+}
