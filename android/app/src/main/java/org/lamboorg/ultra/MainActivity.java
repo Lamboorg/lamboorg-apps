@@ -247,6 +247,27 @@ public class MainActivity extends Activity {
         @JavascriptInterface public void pushDisable() { Push.unregister(MainActivity.this); }
         @JavascriptInterface public void saveRing(String json) { Push.saveRing(MainActivity.this, json); }
         @JavascriptInterface public String version() { return BuildConfig.VERSION_NAME; }
+        /** the site's theme: the strip around the camera cutout + system bars get the page's edge colour */
+        @JavascriptInterface public void setTheme(String color, boolean light) { runOnUiThread(() -> applyBars(color, light)); }
+    }
+
+    private void applyBars(String color, boolean light) {
+        int c; try { c = Color.parseColor(color); } catch (Exception e) { return; }
+        root.setBackgroundColor(c);
+        getWindow().getDecorView().setBackgroundColor(c);
+        getWindow().setStatusBarColor(c);
+        getWindow().setNavigationBarColor(c);
+        if (Build.VERSION.SDK_INT >= 30) {
+            WindowInsetsController wc = getWindow().getInsetsController();
+            if (wc != null) {
+                int m = WindowInsetsController.APPEARANCE_LIGHT_STATUS_BARS | WindowInsetsController.APPEARANCE_LIGHT_NAVIGATION_BARS;
+                wc.setSystemBarsAppearance(light ? m : 0, m);
+            }
+        } else if (Build.VERSION.SDK_INT >= 26) {
+            View d = getWindow().getDecorView(); int f = d.getSystemUiVisibility();
+            f = light ? (f | View.SYSTEM_UI_FLAG_LIGHT_STATUS_BAR | View.SYSTEM_UI_FLAG_LIGHT_NAVIGATION_BAR) : (f & ~View.SYSTEM_UI_FLAG_LIGHT_STATUS_BAR & ~View.SYSTEM_UI_FLAG_LIGHT_NAVIGATION_BAR);
+            d.setSystemUiVisibility(f);
+        }
     }
 
     @Override
