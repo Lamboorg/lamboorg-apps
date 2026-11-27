@@ -1,94 +1,67 @@
 from PIL import Image
-import json
 N=48
-C={'K':(14,10,24),'F':(98,82,148),'f':(66,54,104),'l':(134,118,190),'M':(212,204,240),'m':(170,160,210),
-   'W':(255,255,255),'E':(40,226,255),'e':(12,120,170),'R':(236,40,70),'r':(160,20,48),'T':(255,130,160),'N':(255,120,160),
-   'D':(60,8,24),'B':(214,219,230),'b':(142,148,164),'P':(40,44,56),'p':(110,116,136),'Q':(255,170,200),'Y':(255,255,255)}
-g=[['.']*N for _ in range(N)]
-def put(x,y,c):
-    if 0<=x<N and 0<=y<N: g[y][x]=c
-def rect(x0,y0,x1,y1,c):
-    for y in range(y0,y1+1):
-        for x in range(x0,x1+1): put(x,y,c)
+K=(12,12,14); Wc=(255,255,255)
+g=[[None]*N for _ in range(N)]
 def inell(x,y,cx,cy,rx,ry): return ((x+.5-cx)/rx)**2+((y+.5-cy)/ry)**2<=1
-def ell(cx,cy,rx,ry,c,cond=lambda x,y:True):
-    for y in range(N):
-        for x in range(N):
-            if inell(x,y,cx,cy,rx,ry) and cond(x,y): put(x,y,c)
-def tri(a,b,c_,col):
+def tri_in(x,y,a,b,c):
     def s(p,q,r): return (p[0]-r[0])*(q[1]-r[1])-(q[0]-r[0])*(p[1]-r[1])
+    P=(x+.5,y+.5); d1,d2,d3=s(P,a,b),s(P,b,c),s(P,c,a)
+    return not ((d1<0 or d2<0 or d3<0) and (d1>0 or d2>0 or d3>0))
+def part(test, fill='W'):
+    m={(x,y) for y in range(N) for x in range(N) if test(x,y)}
+    for (x,y) in m:
+        edge=any((x+dx,y+dy) not in m and 0<=x+dx<N and y+dy<N for dx,dy in ((1,0),(-1,0),(0,1),(0,-1)))
+        if edge or (x in (0,N-1) and y<N-1): g[y][x]='K'
+        else: g[y][x]=fill
+    return m
+def px(x,y,c):
+    if 0<=x<N and 0<=y<N: g[y][x]=c
+# dumbbell (back), fully in frame
+part(lambda x,y: 31<=x<=45 and 7<=y<=9)
+part(lambda x,y: 28<=x<=32 and 2<=y<=14 and (x,y) not in ((28,2),(32,2),(28,14),(32,14)))
+part(lambda x,y: 43<=x<=47 and 2<=y<=14 and (x,y) not in ((43,2),(47,2),(43,14),(47,14)))
+# arm: shoulder off the bottom, bicep, forearm
+part(lambda x,y: (y>=30 and 36+(y-30)//5<=x<=44+(y-30)//6) or inell(x,y,40.5,25.5,5.6,5.4) or (35<=x<=41 and 11<=y<=24))
+# paw on the bar
+part(lambda x,y: 34<=x<=41 and 3<=y<=12 and (x,y) not in ((34,3),(41,3),(34,12),(41,12)))
+for y in (3,4,5): px(36,y,'K'); px(39,y,'K')
+px(41,22,'K'); px(42,23,'K')   # bicep line
+# ears + head (round, big)
+part(lambda x,y: tri_in(x,y,(5,25),(9,8),(19,19)))
+part(lambda x,y: tri_in(x,y,(23,19),(31,8),(35,25)))
+head=part(lambda x,y: inell(x,y,20,32.5,17,14.6))
+# inner ear lines
+for (x,y) in ((9,13),(9,14),(10,15),(11,16),(30,13),(30,14),(29,15),(28,16)): px(x,y,'K')
+# bandana: black band over the top of the head, white dots, knot + tails on the left
+for (x,y) in head:
+    if y<=24 and g[y][x]=='W': g[y][x]='K'
+for (x,y) in ((11,21),(16,19),(21,19),(26,20),(31,22),(13,23),(19,22),(24,22),(29,23),(8,23),(17,24),(27,24)):
+    if g[y][x]=='K' and (x,y) in head and y>18: g[y][x]='W'
+for y in range(20,25):
+    for x in range(1,6): px(x,y,'K')
+for y in range(25,31): px(1,y,'K'); px(2,y,'K')
+for y in range(25,28): px(4,y,'K'); px(5,y,'K')
+px(3,22,'W')
+# face: big shiny eyes
+for cx in (13,27):
     for y in range(N):
         for x in range(N):
-            P=(x+.5,y+.5); d1,d2,d3=s(P,a,b),s(P,b,c_),s(P,c_,a)
-            if not ((d1<0 or d2<0 or d3<0) and (d1>0 or d2>0 or d3>0)): put(x,y,col)
-# ---- arm (behind the head): forearm up to the paw, big bicep, shoulder off the bottom edge
-rect(37,12,43,21,'F'); rect(42,12,43,21,'f')
-ell(41,25.5,5.6,5.2,'F'); ell(41,25.5,5.6,5.2,'f',lambda x,y: not inell(x,y,40.2,24.8,5,4.6))
-for y in range(29,48): rect(37+(y-29)//6,y,44+(y-29)//5,y,'F'); put(44+(y-29)//5,y,'f')
-put(38,24,'l'); put(39,23,'l'); put(40,23,'l')          # bicep shine
-# ---- dumbbell held up
-rect(32,7,47,8,'B'); rect(32,8,47,8,'b')
-rect(29,2,32,13,'b'); rect(30,3,30,12,'B'); rect(33,4,34,11,'b'); put(33,5,'B')
-rect(45,2,47,13,'b'); rect(46,3,46,12,'B'); rect(43,4,44,11,'b'); put(44,5,'B')
-# paw wrapped around the bar
-rect(36,4,42,11,'F'); put(36,4,'.'); put(42,4,'.'); rect(36,11,42,11,'f')
-rect(38,4,38,7,'f'); rect(40,4,40,7,'f')                 # toes
-rect(37,5,37,5,'l'); rect(39,5,39,5,'l'); rect(41,5,41,5,'l')
-# ---- head
-arm={(x,y) for y in range(N) for x in range(N) if g[y][x]!='.'}
-ears=[((5,26),(9,6),(19,20)),((23,20),(31,6),(35,26))]
-for a,b,c_ in ears: tri(a,b,c_,'F')
-tri((8,24),(10,11),(16,20),'T'); tri((26,20),(30,11),(32,24),'T')
-ell(20,32,17.5,14.5,'F')
-ell(20,32,17.5,14.5,'f',lambda x,y: not inell(x,y,19,30.8,16.4,13.6))
-head={(x,y) for y in range(N) for x in range(N) if inell(x,y,20,32,17.5,14.5)}
-for (x,y) in head:
-    if any((x+dx,y+dy) in arm and (x+dx,y+dy) not in head for dx,dy in ((1,0),(-1,0),(0,1),(0,-1))): put(x,y,'K')
-# cheek fluff
-for (x,y) in ((2,34),(2,35),(1,36),(2,37),(38,34),(38,35),(39,36),(38,37)): put(x,y,'F')
-# muzzle
-ell(20,38.5,8,5.2,'M'); ell(20,40,8,4,'m',lambda x,y: y>41)
-# ---- bandana on top of the head, knot on the left with two tails
-for y in range(N):
-    for x in range(N):
-        if g[y][x] in 'Ff' and 17<=y<=23 and 5<x<36 and inell(x,y,20,32,17.5,14.5): put(x,y,'R')
-for x in range(6,36): 
-    if g[23][x]=='R': put(x,23,'r')
-for (x,y) in ((9,19),(14,18),(19,17),(24,18),(29,19),(12,21),(17,20),(22,20),(27,21),(32,21),(7,22)): 
-    if g[y][x]=='R': put(x,y,'Y')
-rect(2,21,5,24,'R'); put(2,21,'r'); put(5,24,'r'); put(3,22,'Y')               # knot
-rect(0,25,2,29,'R'); rect(0,29,1,31,'R'); put(2,25,'r'); rect(3,25,4,27,'R'); put(4,27,'r')   # tails
-# ---- eyes: big, cyan, slit pupils
-for ex in (10,24):
-    rect(ex,26,ex+6,32,'E'); rect(ex,26,ex+6,26,'K'); put(ex,27,'K') if ex==10 else None
-    put(ex,32,'.'); put(ex+6,32,'.')
-    rect(ex,31,ex+6,32,'e'); put(ex,32,'F'); put(ex+6,32,'F')
-    rect(ex+3,27,ex+3,32,'K')                     # slit
-    put(ex+1,27,'W'); put(ex+2,27,'W'); put(ex+1,28,'W')   # shine
-# determined brows: inner ends lower
-rect(10,25,13,25,'K'); put(14,25,'K'); put(15,26,'K'); put(16,26,'K')
-rect(27,25,30,25,'K'); put(26,25,'K'); put(25,26,'K'); put(24,26,'K')
-# ---- nose + mouth + triangle fangs
-rect(19,35,21,35,'N'); put(20,36,'N')
-put(20,37,'K'); put(19,38,'K'); put(18,38,'K'); put(21,38,'K'); put(22,38,'K')
-rect(15,39,25,42,'D'); rect(15,39,25,39,'K'); put(14,39,'K'); put(26,39,'K'); put(14,40,'K'); put(26,40,'K'); rect(15,43,25,43,'K'); put(14,41,'K'); put(26,41,'K'); put(14,42,'K'); put(26,42,'K')
-rect(19,42,21,42,'T')   # tongue
-for fx in (15,22):      # fangs: 4 wide -> 2 -> point
-    rect(fx,40,fx+3,40,'W'); rect(fx+1,41,fx+2,41,'W'); put(fx+1 if fx==15 else fx+2,42,'W')
-# blush + whiskers
-rect(6,36,8,36,'T'); rect(32,36,34,36,'T')
+            if inell(x,y,cx,30.5,3.1,3.8): g[y][x]='K'
+    px(cx-2,28,'W'); px(cx-1,28,'W'); px(cx-2,29,'W'); px(cx-1,29,'W'); px(cx+1,32,'W')
+# blush ///
+for bx in (8,30):
+    for i in range(3): px(bx+i*2,36,'K'); px(bx+i*2+1,35,'K')
+# nose + w mouth + two little fangs
+for x in (19,20,21): px(x,34,'K')
+px(20,35,'K')
+for (x,y) in ((16,36),(17,37),(18,37),(19,37),(20,36),(21,37),(22,37),(23,37),(24,36)): px(x,y,'K')
+for fx in (17,22):
+    px(fx,38,'K'); px(fx+1,38,'W'); px(fx+2,38,'K'); px(fx+1,39,'K')
+# whiskers
 
-# (right whiskers hidden behind the arm)
-# outline
-o=[r[:] for r in g]
+im=Image.new('RGBA',(N,N),Wc+(255,))
 for y in range(N):
     for x in range(N):
-        if g[y][x]=='.':
-            if any(0<=x+dx<N and 0<=y+dy<N and g[y+dy][x+dx] not in '.Kl' for dx,dy in ((1,0),(-1,0),(0,1),(0,-1))): o[y][x]='K'
-g=o
-im=Image.new('RGBA',(N,N),(0,0,0,0))
-for y in range(N):
-    for x in range(N):
-        if g[y][x]!='.': im.putpixel((x,y),C[g[y][x]]+(255,))
-im.save('cat.png')
-bg=Image.new('RGBA',(N*12,N*12),(6,8,10,255)); bg.alpha_composite(im.resize((N*12,N*12),Image.NEAREST)); bg.save('cat_preview.png')
+        if g[y][x]=='K': im.putpixel((x,y),K+(255,))
+im.save('cute.png')
+im.resize((N*12,N*12),Image.NEAREST).save('cute_preview.png')
