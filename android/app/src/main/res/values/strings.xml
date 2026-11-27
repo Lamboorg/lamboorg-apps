@@ -1,3 +1,5 @@
 <resources>
     <string name="app_name">Lamboorg</string>
+    <string name="ch_messages">Messages and posts</string>
+    <string name="ch_calls">Calls</string>
 </resources>

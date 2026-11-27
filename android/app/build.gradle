@@ -4,7 +4,7 @@ def run = (System.getenv('GITHUB_RUN_NUMBER') ?: '1') as Integer
 
 android {
     namespace 'org.lamboorg.ultra'
-    compileSdk 34
+    compileSdk 35
     defaultConfig {
         applicationId 'org.lamboorg.ultra'
         minSdk 24
@@ -32,4 +32,10 @@ android {
     }
     buildFeatures { buildConfig true }
     compileOptions { sourceCompatibility JavaVersion.VERSION_17; targetCompatibility JavaVersion.VERSION_17 }
+}
+
+dependencies {
+    // UnifiedPush: push through ntfy / any distributor app, with Google's push built in as the fallback
+    implementation 'org.unifiedpush.android:connector:3.1.2'
+    implementation 'org.unifiedpush.android:embedded-fcm-distributor:3.1.0'
 }

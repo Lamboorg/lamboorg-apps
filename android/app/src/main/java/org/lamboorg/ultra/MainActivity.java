@@ -18,6 +18,7 @@ import android.view.WindowInsets;
 import android.view.WindowInsetsController;
 import android.view.WindowManager;
 import android.webkit.CookieManager;
+import android.webkit.JavascriptInterface;
 import android.webkit.PermissionRequest;
 import android.webkit.ValueCallback;
 import android.webkit.WebChromeClient;
@@ -39,7 +40,8 @@ import java.util.List;
 public class MainActivity extends Activity {
     private static final String HOST = "lamboorg.neocities.org";
     private static final String HOME = "https://" + HOST + "/";
-    private static final int REQ_FILE = 1, REQ_PERM = 2;
+    private static final int REQ_FILE = 1, REQ_PERM = 2, REQ_NOTIF = 3;
+    private String pendingVapid;
 
     private FrameLayout root;
     private WebView web;
@@ -142,6 +144,10 @@ public class MainActivity extends Activity {
 
         web.setDownloadListener((url, ua, cd, mime, len) -> openOutside(Uri.parse(url)));
 
+        // native push for the site (the WebView itself can't do web push): window.LamboorgNative
+        web.addJavascriptInterface(new Bridge(), "LamboorgNative");
+        Push.listener = () -> runOnUiThread(() -> { if (web != null) web.evaluateJavascript("window.LU_nativePush&&window.LU_nativePush()", null); });
+
         if (state != null) web.restoreState(state);
         else {
             Uri link = getIntent() != null ? getIntent().getData() : null;
@@ -212,6 +218,13 @@ public class MainActivity extends Activity {
 
     @Override
     public void onRequestPermissionsResult(int req, String[] perms, int[] results) {
+        if (req == REQ_NOTIF) {
+            boolean ok = results.length > 0 && results[0] == PackageManager.PERMISSION_GRANTED;
+            if (ok && pendingVapid != null) Push.register(this, pendingVapid);
+            else { Push.prefs(this).edit().putString("state", "blocked").putBoolean("asked", true).apply(); Push.changed(); }
+            pendingVapid = null;
+            return;
+        }
         if (req == REQ_PERM && pendingPermission != null) {
             boolean ok = true;
             for (int r : results) ok &= r == PackageManager.PERMISSION_GRANTED;
@@ -219,6 +232,25 @@ public class MainActivity extends Activity {
             pendingPermission = null;
         }
     }
+
+    /** what the site can call: push on/off, push state, and a copy of the chat keys so notifications can show the message */
+    private class Bridge {
+        @JavascriptInterface public String pushState() { return Push.state(MainActivity.this); }
+        @JavascriptInterface public void pushEnable(String vapid) {
+            runOnUiThread(() -> {
+                if (Build.VERSION.SDK_INT >= 33 && checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) {
+                    pendingVapid = vapid; requestPermissions(new String[]{Manifest.permission.POST_NOTIFICATIONS}, REQ_NOTIF); return;
+                }
+                Push.register(MainActivity.this, vapid);
+            });
+        }
+        @JavascriptInterface public void pushDisable() { Push.unregister(MainActivity.this); }
+        @JavascriptInterface public void saveRing(String json) { Push.saveRing(MainActivity.this, json); }
+        @JavascriptInterface public String version() { return BuildConfig.VERSION_NAME; }
+    }
+
+    @Override
+    protected void onDestroy() { Push.listener = null; super.onDestroy(); }
 
     @Override
     protected void onNewIntent(Intent intent) {

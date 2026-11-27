@@ -7,6 +7,8 @@ const HOST = 'lamboorg.neocities.org';
 const HOME = 'https://' + HOST + '/';
 const isOurs = u => { try { const x = new URL(u); return x.protocol === 'https:' && x.host === HOST; } catch (e) { return false; } };
 
+// Linux: one fixed id for the window (Wayland app_id / X11 WM_CLASS), so the dock and taskbar find our icon
+if (process.platform === 'linux') { app.commandLine.appendSwitch('class', 'lamboorg-ultra'); try { app.setDesktopName('lamboorg-ultra.desktop'); } catch (e) {} }
 if (!app.requestSingleInstanceLock()) app.quit();
 nativeTheme.themeSource = 'dark';
 
@@ -35,7 +37,26 @@ function create() {
   win.loadURL(HOME);
 }
 
+// AppImage has no installer: put a launcher entry + icon in the user's menu, so the app shows up with its icon
+// (also fixes the generic gear icon in the dock). Runs on every start, so it follows the file if it's moved.
+function linuxIntegrate() {
+  const img = process.env.APPIMAGE; if (process.platform !== 'linux' || !img) return;
+  try {
+    const home = app.getPath('home'), share = process.env.XDG_DATA_HOME || path.join(home, '.local', 'share');
+    const iconDir = path.join(share, 'icons', 'hicolor', '512x512', 'apps'), appDir = path.join(share, 'applications');
+    fs.mkdirSync(iconDir, { recursive: true }); fs.mkdirSync(appDir, { recursive: true });
+    fs.copyFileSync(path.join(__dirname, 'build', 'icon.png'), path.join(iconDir, 'lamboorg-ultra.png'));
+    const q = s => '"' + s.replace(/(["`$\\])/g, '\\$1') + '"';
+    const entry = ['[Desktop Entry]', 'Type=Application', 'Name=Lamboorg Ultra', 'Comment=Lamboorg Ultra', 'Exec=' + q(img) + ' %U', 'Icon=lamboorg-ultra',
+      'Terminal=false', 'Categories=Network;Chat;', 'StartupWMClass=lamboorg-ultra', 'StartupNotify=true', ''].join('\n');
+    const file = path.join(appDir, 'lamboorg-ultra.desktop');
+    let old = ''; try { old = fs.readFileSync(file, 'utf8'); } catch (e) {}
+    if (old !== entry) fs.writeFileSync(file, entry, { mode: 0o755 });
+  } catch (e) { /* not important enough to stop the app */ }
+}
+
 app.whenReady().then(() => {
+  linuxIntegrate();
   // camera / mic for calls and QR, notifications, clipboard, full screen: only for the Lamboorg site
   const ok = ['media', 'notifications', 'clipboard-sanitized-write', 'clipboard-read', 'fullscreen', 'mediaKeySystem'];
   session.defaultSession.setPermissionRequestHandler((wc, perm, cb, details) => cb(ok.includes(perm) && isOurs(details.requestingUrl || wc.getURL())));
