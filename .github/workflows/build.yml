@@ -55,13 +55,19 @@ jobs:
           KEYSTORE_B64: ${{ secrets.SIGNING_KEYSTORE_B64 }}
         run: |
           if [ -z "$KEYSTORE_B64" ]; then echo "::error::Add the SIGNING_KEYSTORE_B64 and SIGNING_PASSWORD secrets (Settings > Secrets and variables > Actions)"; exit 1; fi
-          echo "$KEYSTORE_B64" | base64 -d > "$RUNNER_TEMP/release.keystore"
+          printf '%s' "$KEYSTORE_B64" | tr -d ' \r\n\t' | base64 -d > "$RUNNER_TEMP/release.keystore"
           echo "SIGNING_KEYSTORE=$RUNNER_TEMP/release.keystore" >> "$GITHUB_ENV"
       - name: Build signed APK
         working-directory: android
         env:
-          SIGNING_PASSWORD: ${{ secrets.SIGNING_PASSWORD }}
-        run: gradle assembleRelease --no-daemon
+          RAW_PASSWORD: ${{ secrets.SIGNING_PASSWORD }}
+        run: |
+          # pasted secrets often pick up a line break or spaces: strip them
+          export SIGNING_PASSWORD="$(printf '%s' "$RAW_PASSWORD" | tr -d '\r\n' | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')"
+          if ! keytool -list -keystore "$SIGNING_KEYSTORE" -storepass "$SIGNING_PASSWORD" -alias lamboorg >/dev/null 2>&1; then
+            echo "::error::SIGNING_PASSWORD doesn't open the keystore (length ${#SIGNING_PASSWORD}, expected 28). Paste the line from SIGNING_PASSWORD.txt again."; exit 1
+          fi
+          gradle assembleRelease --no-daemon
       - name: Check signature
         run: |
           APK=android/app/build/outputs/apk/release/app-release.apk
