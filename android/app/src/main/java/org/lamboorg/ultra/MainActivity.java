@@ -148,11 +148,10 @@ public class MainActivity extends Activity {
         web.addJavascriptInterface(new Bridge(), "LamboorgNative");
         Push.listener = () -> runOnUiThread(() -> { if (web != null) web.evaluateJavascript("window.LU_nativePush&&window.LU_nativePush()", null); });
 
-        if (state != null) web.restoreState(state);
-        else {
-            Uri link = getIntent() != null ? getIntent().getData() : null;
-            web.loadUrl(link != null && HOST.equals(link.getHost()) ? link.toString() : HOME);
-        }
+        // always load the live site fresh (a restored WebView shows the old cached page, so site updates wouldn't arrive)
+        Uri link = getIntent() != null ? getIntent().getData() : null;
+        String last = state != null ? state.getString("lu-url") : null;
+        web.loadUrl(link != null && HOST.equals(link.getHost()) ? link.toString() : last != null && last.startsWith(HOME) ? last : HOME);
     }
 
     /* full screen: no status bar, no navigation bar (swipe from the edge shows them for a moment).
@@ -285,14 +284,22 @@ public class MainActivity extends Activity {
         else moveTaskToBack(true);   // like a real app: leaves it running in the background
     }
 
+    private long pausedAt = 0;
     @Override
-    protected void onSaveInstanceState(Bundle out) {
-        super.onSaveInstanceState(out);
-        web.saveState(out);
+    protected void onResume() {
+        super.onResume();
+        if (pausedAt > 0 && System.currentTimeMillis() - pausedAt > 30 * 60 * 1000 && web != null && fullVideo == null) web.reload();   // away for 30+ min: fresh start, newest version
+        pausedAt = 0;
     }
 
     @Override
-    protected void onPause() { super.onPause(); CookieManager.getInstance().flush(); }
+    protected void onSaveInstanceState(Bundle out) {
+        super.onSaveInstanceState(out);
+        if (web != null && web.getUrl() != null) out.putString("lu-url", web.getUrl());
+    }
+
+    @Override
+    protected void onPause() { super.onPause(); pausedAt = System.currentTimeMillis(); CookieManager.getInstance().flush(); }
 
     @Override
     protected void onDestroy() { Push.listener = null; if (web != null) web.destroy(); super.onDestroy(); }
