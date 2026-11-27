@@ -250,9 +250,6 @@ public class MainActivity extends Activity {
     }
 
     @Override
-    protected void onDestroy() { Push.listener = null; super.onDestroy(); }
-
-    @Override
     protected void onNewIntent(Intent intent) {
         super.onNewIntent(intent);
         Uri link = intent.getData();
@@ -277,5 +274,5 @@ public class MainActivity extends Activity {
     protected void onPause() { super.onPause(); CookieManager.getInstance().flush(); }
 
     @Override
-    protected void onDestroy() { if (web != null) web.destroy(); super.onDestroy(); }
+    protected void onDestroy() { Push.listener = null; if (web != null) web.destroy(); super.onDestroy(); }
 }
